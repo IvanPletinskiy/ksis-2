@@ -1,11 +1,22 @@
 import java.io.BufferedReader
+import java.io.IOException
 import java.io.InputStreamReader
 import java.net.ServerSocket
-import java.util.concurrent.CountDownLatch
+import java.net.Socket
+
+private val connections = mutableListOf<ConnectionHandler>()
+
+typealias OnMessageReceived = (ConnectionHandler, String) -> Unit
 
 fun main() {
     val serverSocket = createSocket()
-    val countDownLatch = CountDownLatch(1)
+    val onMessageReceived: OnMessageReceived = { sourceHandler, message ->
+        connections.filter {
+            it != sourceHandler
+        }.forEach {
+            it.sendMessage(message)
+        }
+    }
 
     if (serverSocket == null) {
         println("Can't start socket.")
@@ -14,45 +25,10 @@ fun main() {
         println("Socket started on port ${serverSocket.localPort}, ${serverSocket.inetAddress}")
     }
 
-    val connectionSocket = serverSocket.accept()
-    val inputStream = connectionSocket.getInputStream()
-    val outputStream = connectionSocket.getOutputStream()
-
-    val bufferedInputReader = inputStream.bufferedReader()
-    val keyboardReader = BufferedReader(InputStreamReader(System.`in`))
-    val bufferedWriter = outputStream.bufferedWriter()
-
-    val inputThread = Thread {
-        while (true) {
-            try {
-
-            } catch (e: java.lang.Exception) {
-                e.printStackTrace()
-                countDownLatch.countDown()
-                break
-            }
-            val message = bufferedInputReader.readLine()
-            println(message)
-        }
+    while (true) {
+        val connectionSocket = serverSocket.accept()
+        connections.add(ConnectionHandler(connectionSocket, onMessageReceived))
     }
-    inputThread.start()
-
-    val outputThread = Thread {
-        while (true) {
-            try {
-                val text = keyboardReader.readLine()
-                bufferedWriter.write(text + "\n")
-                bufferedWriter.flush()
-            } catch (e: Exception) {
-                e.printStackTrace()
-                countDownLatch.countDown()
-                break
-            }
-        }
-    }
-    outputThread.start()
-
-    countDownLatch.await()
 }
 
 fun createSocket(): ServerSocket? {
@@ -70,4 +46,32 @@ fun createSocket(): ServerSocket? {
     }
 
     return socket
+}
+
+class ConnectionHandler(
+    socket: Socket,
+    private val onMessageReceived: OnMessageReceived
+) {
+    private val inputStream = socket.getInputStream()
+    private val bufferedInputReader = inputStream.bufferedReader()
+    private val outputStream = socket.getOutputStream()
+    private val bufferedWriter = outputStream.bufferedWriter()
+
+    val inputThread = Thread {
+        while (true) {
+            val line = bufferedInputReader.readLine()
+            onMessageReceived(this, line)
+        }
+    }.also {
+        it.start()
+    }
+
+    fun sendMessage(line: String) {
+        try {
+            bufferedWriter.write(line + "\n")
+            bufferedWriter.flush()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
 }

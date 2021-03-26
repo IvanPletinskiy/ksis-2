@@ -15,8 +15,9 @@ fun main() {
     println("Enter port:")
     val portString = bufferedReader.readLine()
     val port = Integer.parseInt(portString)
-
     val socket = Socket(ip, port)
+    println("Enter your name:")
+    val name = bufferedReader.readLine()
 
     val inputStream = socket.getInputStream()
     val outputStream = socket.getOutputStream()
@@ -28,14 +29,13 @@ fun main() {
     val inputThread = Thread {
         while (true) {
             try {
-
+                val message = bufferedInputReader.readLine()
+                println(message)
             } catch (e: java.lang.Exception) {
                 e.printStackTrace()
                 countDownLatch.countDown()
                 break
             }
-            val message = bufferedInputReader.readLine()
-            println(message)
         }
     }
     inputThread.start()
@@ -44,7 +44,7 @@ fun main() {
         while (true) {
             try {
                 val text = keyboardReader.readLine()
-                bufferedWriter.write(text + "\n")
+                bufferedWriter.write("$name:\t$text\n")
                 bufferedWriter.flush()
             } catch (e: Exception) {
                 e.printStackTrace()
