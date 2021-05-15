@@ -56,4 +56,5 @@ fun main() {
     outputThread.start()
 
     countDownLatch.await()
+    socket.close()
 }
